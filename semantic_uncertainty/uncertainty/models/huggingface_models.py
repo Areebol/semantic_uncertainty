@@ -85,7 +85,7 @@ def remove_split_layer(device_map_in):
 class HuggingfaceModel(BaseModel):
     """Hugging Face Model."""
 
-    def __init__(self, model_name, stop_sequences=None, max_new_tokens=None):
+    def __init__(self, model_name, stop_sequences=None, max_new_tokens=None, snapt_shot=False):
         if max_new_tokens is None:
             raise
         self.max_new_tokens = max_new_tokens
@@ -107,20 +107,35 @@ class HuggingfaceModel(BaseModel):
             if 'Llama-2' in model_name:
                 base = 'meta-llama'
                 model_name = model_name + '-hf'
+                if '7b' in model_name:
+                    cache_dir = "/U_20240603_ZSH_SMIL/LLM/models--meta-llama--Llama-2-7b-hf/snapshots/01c7f73d771dfac7d292323805ebc428287df4f9"
+                if '7b-chat' in model_name:
+                    cache_dir = "/U_20240603_ZSH_SMIL/LLM/models--meta-llama--Llama-2-7b-chat-hf/snapshots/f5db02db724555f92da89c216ac04704f23d4590"
             else:
                 base = 'huggyllama'
 
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                f"{base}/{model_name}", device_map="auto",
-                token_type_ids=None)
+            assert (snapt_shot is True and cache_dir is not None) or (snapt_shot is False)
+            if snapt_shot:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    cache_dir, device_map="auto",
+                    token_type_ids=None)
+            else:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    f"{base}/{model_name}", device_map="auto",
+                    token_type_ids=None)
 
             llama65b = '65b' in model_name and base == 'huggyllama'
             llama2_70b = '70b' in model_name and base == 'meta-llama'
 
             if ('7b' in model_name or '13b' in model_name) or eightbit:
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    f"{base}/{model_name}", device_map="auto",
-                    max_memory={0: '80GIB'}, **kwargs,)
+                if snapt_shot:
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        cache_dir, device_map="auto",
+                        max_memory={0: '80GIB'}, **kwargs,)
+                else:
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        f"{base}/{model_name}", device_map="auto",
+                        max_memory={0: '80GIB'}, **kwargs,)
 
             elif llama2_70b or llama65b:
                 path = snapshot_download(

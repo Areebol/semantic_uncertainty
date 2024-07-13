@@ -44,6 +44,7 @@ def main(args):
         dir=f"{scratch_dir}/{user}/uncertainty",
         config=args,
         notes=f'slurm_id: {slurm_jobid}, experiment_lot: {args.experiment_lot}',
+        mode="offline"
     )
     logging.info('Finished wandb init.')
 

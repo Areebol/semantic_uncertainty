@@ -36,6 +36,9 @@ def get_parser(stages=['generate', 'compute']):
     parser.add_argument(
         "--experiment_lot", type=str, default='Unnamed Experiment',
         help="Keep default wandb clean.")
+    parser.add_argument(
+        "--snapt_shot", type=bool, default=False,
+        help="Use snapt shot models")
     if 'generate' in stages:
         parser.add_argument(
             "--model_name", type=str, default="Llama-2-7b-chat", help="Model name",
@@ -277,7 +280,8 @@ def init_model(args):
     if 'llama' in mn.lower() or 'falcon' in mn or 'mistral' in mn.lower():
         model = HuggingfaceModel(
             mn, stop_sequences='default',
-            max_new_tokens=args.model_max_new_tokens)
+            max_new_tokens=args.model_max_new_tokens,
+            snapt_shot=args.snapt_shot)
     else:
         raise ValueError(f'Unknown model_name `{mn}`.')
     return model
