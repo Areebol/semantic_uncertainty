@@ -37,7 +37,7 @@ def get_parser(stages=['generate', 'compute']):
         "--experiment_lot", type=str, default='Unnamed Experiment',
         help="Keep default wandb clean.")
     parser.add_argument(
-        "--snapt_shot", type=bool, default=False,
+        "--snapt_shot", type=bool, default=True,
         help="Use snapt shot models")
     if 'generate' in stages:
         parser.add_argument(
@@ -56,7 +56,7 @@ def get_parser(stages=['generate', 'compute']):
             choices=['trivia_qa', 'squad', 'bioasq', 'nq', 'svamp'],
             help="Dataset to use to assemble few-shot prompt, p_true prompt, and train p_ik.")
         parser.add_argument(
-            "--num_samples", type=int, default=400,
+            "--num_samples", type=int, default=10,
             help="Number of samples to use")
         parser.add_argument(
             "--num_few_shot", type=int, default=5,

@@ -9,7 +9,7 @@ unset https_proxy
 export HF_ENDPOINT=https://hf-mirror.com
 
 # Generate answer
-python semantic_uncertainty/generate_answers.py \
+python semantic_uncertainty/generate_answers_BS.py \
     --snapt_shot True \
-    --model_name=Llama-2-7b \
+    --model_name=Llama-2-7b-chat \
     --dataset=trivia_qa
