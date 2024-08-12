@@ -1,6 +1,7 @@
 """Sample answers from LLMs on QA task."""
 import gc
 import os
+os.environ["HF_ENDPOINT"] = "http://hf-mirror.com"
 import logging
 import random
 from tqdm import tqdm
@@ -14,7 +15,6 @@ from uncertainty.utils import utils
 from uncertainty.uncertainty_measures import p_true as p_true_utils
 from compute_uncertainty_measures import main as main_compute
 
-os.environ["HF_ENDPOINT"] = "http://hf-mirror.com"
 utils.setup_logger()
 
 
@@ -211,7 +211,24 @@ def main(args):
 
             # Append all predictions for this example to `generations`.
             generations[example['id']]['responses'] = full_responses
-
+            
+            # Beam predict 
+            #   Search
+            beam_predicted_answers, beam_token_log_likelihoods_s, beam_embeddings = model.beam_predict(
+                    local_prompt, 1.0,num_generations)
+            #   Append all predictions for this example in Beam way to `generations`
+            generations[example['id']]['beam_search_responses'] = list(zip(beam_predicted_answers,beam_token_log_likelihoods_s,beam_embeddings))
+            for i, predicted_answer in enumerate(beam_predicted_answers):
+                logging.info('beam search prediction '.ljust(15) + str(i) + ' : ' + predicted_answer)
+                
+            #   Sample
+            beam_predicted_answers, beam_token_log_likelihoods_s, beam_embeddings = model.beam_predict(
+                    local_prompt, 1.0, num_generations,do_sample=True)
+            #   Append all predictions for this example in Beam way to `generations`
+            generations[example['id']]['beam_sample_responses'] = list(zip(beam_predicted_answers,beam_token_log_likelihoods_s,beam_embeddings))
+            for i, predicted_answer in enumerate(beam_predicted_answers):
+                logging.info('beam sample prediction '.ljust(15) + str(i) + ' : ' + predicted_answer)
+                
             if args.compute_p_true and dataset_split == 'validation':
                 # Already compute p_true here. Avoid cost of generations in compute_uncertainty script.
                 p_true = p_true_utils.calculate_p_true(

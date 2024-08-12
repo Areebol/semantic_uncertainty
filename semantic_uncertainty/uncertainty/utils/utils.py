@@ -56,7 +56,7 @@ def get_parser(stages=['generate', 'compute']):
             choices=['trivia_qa', 'squad', 'bioasq', 'nq', 'svamp'],
             help="Dataset to use to assemble few-shot prompt, p_true prompt, and train p_ik.")
         parser.add_argument(
-            "--num_samples", type=int, default=10,
+            "--num_samples", type=int, default=500,
             help="Number of samples to use")
         parser.add_argument(
             "--num_few_shot", type=int, default=5,
@@ -91,7 +91,7 @@ def get_parser(stages=['generate', 'compute']):
             help=(
                 "Only get embedding of most likely answer for training set. "
                 "This is all that's needed for p_true."))
-        parser.add_argument('--compute_p_true', default=True,
+        parser.add_argument('--compute_p_true', default=False,
                             action=argparse.BooleanOptionalAction)
         parser.add_argument(
             "--brief_always", default=False, action=argparse.BooleanOptionalAction)
@@ -120,7 +120,7 @@ def get_parser(stages=['generate', 'compute']):
         parser.add_argument('--num_eval_samples', type=int, default=int(1e19))
         parser.add_argument('--compute_predictive_entropy',
                             default=True, action=argparse.BooleanOptionalAction)
-        parser.add_argument('--compute_p_ik', default=True,
+        parser.add_argument('--compute_p_ik', default=False,
                             action=argparse.BooleanOptionalAction)
         parser.add_argument('--compute_p_ik_answerable', default=False,
                             action=argparse.BooleanOptionalAction)

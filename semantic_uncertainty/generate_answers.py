@@ -1,6 +1,7 @@
 """Sample answers from LLMs on QA task."""
-import gc
 import os
+os.environ["HF_ENDPOINT"] = "http://hf-mirror.com"
+import gc
 import logging
 import random
 from tqdm import tqdm
@@ -14,7 +15,6 @@ from uncertainty.utils import utils
 from uncertainty.uncertainty_measures import p_true as p_true_utils
 from compute_uncertainty_measures import main as main_compute
 
-os.environ["HF_ENDPOINT"] = "http://hf-mirror.com"
 utils.setup_logger()
 
 

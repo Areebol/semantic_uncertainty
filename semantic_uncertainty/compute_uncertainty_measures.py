@@ -166,6 +166,8 @@ def main(args):
     with open(result_dict_pickle.name, "rb") as infile:
         result_dict = pickle.load(infile)
     result_dict['semantic_ids'] = []
+    result_dict['beam_search_semantic_ids'] = []
+    result_dict['beam_sample_semantic_ids'] = []
 
     validation_generations_pickle = restore('validation_generations.pkl')
     with open(validation_generations_pickle.name, 'rb') as infile:
@@ -186,14 +188,20 @@ def main(args):
         question = example['question']
         context = example['context']
         full_responses = example["responses"]
+        beam_search_full_responses = example["beam_search_responses"]
+        beam_sample_full_responses = example["beam_sample_responses"]
         most_likely_answer = example['most_likely_answer']
 
         if not args.use_all_generations:
             if args.use_num_generations == -1:
                 raise ValueError
             responses = [fr[0] for fr in full_responses[:args.use_num_generations]]
+            beam_search_responses = [fr[0] for fr in beam_search_full_responses[:args.use_num_generations]]
+            beam_sample_responses = [fr[0] for fr in beam_sample_full_responses[:args.use_num_generations]]
         else:
             responses = [fr[0] for fr in full_responses]
+            beam_search_responses = [fr[0] for fr in beam_search_full_responses]
+            beam_sample_responses = [fr[0] for fr in beam_sample_full_responses]
 
         if args.recompute_accuracy:
             logging.info('Recomputing accuracy!')
@@ -215,8 +223,12 @@ def main(args):
             # Token log likelihoods. Shape = (n_sample, n_tokens)
             if not args.use_all_generations:
                 log_liks = [r[1] for r in full_responses[:args.use_num_generations]]
+                beam_search_log_liks = [r[1] for r in beam_search_full_responses[:args.use_num_generations]]
+                beam_sample_log_liks = [r[1] for r in beam_sample_full_responses[:args.use_num_generations]]
             else:
                 log_liks = [r[1] for r in full_responses]
+                beam_search_log_liks = [r[1] for r in beam_search_full_responses]
+                beam_sample_log_liks = [r[1] for r in beam_sample_full_responses]
 
             for i in log_liks:
                 assert i
@@ -225,30 +237,56 @@ def main(args):
                 # Compute context entails answer baseline.
                 entropies['context_entails_response'].append(context_entails_response(
                     context, responses, entailment_model))
+                entropies['beam_search_context_entails_response'].append(context_entails_response(
+                    context, beam_search_responses, entailment_model))
+                entropies['beam_sample_context_entails_response'].append(context_entails_response(
+                    context, beam_sample_responses, entailment_model))
 
             if args.condition_on_question and args.entailment_model == 'deberta':
                 responses = [f'{question} {r}' for r in responses]
+                beam_search_responses = [f'{question} {r}' for r in beam_search_responses]
+                beam_sample_responses = [f'{question} {r}' for r in beam_sample_responses]
 
             # Compute semantic ids.
             semantic_ids = get_semantic_ids(
                 responses, model=entailment_model,
                 strict_entailment=args.strict_entailment, example=example)
+            beam_search_semantic_ids = get_semantic_ids(
+                beam_search_responses, model=entailment_model,
+                strict_entailment=args.strict_entailment, example=example)
+            beam_sample_semantic_ids = get_semantic_ids(
+                beam_sample_responses, model=entailment_model,
+                strict_entailment=args.strict_entailment, example=example)
+            
 
             result_dict['semantic_ids'].append(semantic_ids)
+            result_dict['beam_search_semantic_ids'].append(beam_search_semantic_ids)
+            result_dict['beam_sample_semantic_ids'].append(beam_sample_semantic_ids)
 
             # Compute entropy from frequencies of cluster assignments.
             entropies['cluster_assignment_entropy'].append(cluster_assignment_entropy(semantic_ids))
+            entropies['beam_cluster_assignment_entropy'].append(cluster_assignment_entropy(beam_search_semantic_ids))
 
             # Length normalization of generation probabilities.
             log_liks_agg = [np.mean(log_lik) for log_lik in log_liks]
+            beam_search_log_liks_agg = [np.mean(log_lik) for log_lik in beam_search_log_liks]
+            beam_sample_log_liks_agg = [np.mean(log_lik) for log_lik in beam_sample_log_liks]
 
             # Compute naive entropy.
             entropies['regular_entropy'].append(predictive_entropy(log_liks_agg))
+            entropies['beam_search_regular_entropy'].append(predictive_entropy(beam_search_log_liks_agg))
+            entropies['beam_sample_regular_entropy'].append(predictive_entropy(beam_sample_log_liks_agg))
 
             # Compute semantic entropy.
             log_likelihood_per_semantic_id = logsumexp_by_id(semantic_ids, log_liks_agg, agg='sum_normalized')
             pe = predictive_entropy_rao(log_likelihood_per_semantic_id)
             entropies['semantic_entropy'].append(pe)
+            beam_log_likelihood_per_semantic_id = logsumexp_by_id(beam_search_semantic_ids, beam_search_log_liks_agg, agg='sum_normalized')
+            beam_search_pe = predictive_entropy_rao(beam_log_likelihood_per_semantic_id)
+            entropies['beam_search_semantic_entropy'].append(beam_search_pe)
+            beam_log_likelihood_per_semantic_id = logsumexp_by_id(beam_sample_semantic_ids, beam_sample_log_liks_agg, agg='sum_normalized')
+            beam_sample_pe = predictive_entropy_rao(beam_log_likelihood_per_semantic_id)
+            entropies['beam_sample_semantic_entropy'].append(beam_sample_pe)
 
             # pylint: disable=invalid-name
             log_str = 'semantic_ids: %s, avg_token_log_likelihoods: %s, entropies: %s'
@@ -270,6 +308,8 @@ def main(args):
             logging.info([r[0] for r in full_responses])
             logging.info('High Temp Generation:')
             logging.info(log_str, semantic_ids, log_liks_agg, entropies_fmt)
+            logging.info('Beam Search Generation:')
+            logging.info([r[0] for r in beam_search_full_responses])
 
         if args.compute_p_true_in_compute_stage:
             p_true = p_true_utils.calculate_p_true(
