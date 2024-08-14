@@ -420,6 +420,7 @@ class HuggingfaceModel(BaseModel):
                 return_dict_in_generate=True,
                 output_scores=True,
                 output_hidden_states=True,
+                top_k=20,
                 temperature=temperature,
                 do_sample=do_sample,
                 stopping_criteria=stopping_criteria,
@@ -432,6 +433,16 @@ class HuggingfaceModel(BaseModel):
         else:
             hidden = outputs.hidden_states
             
+        # Beam scores
+        def get_lengths(sequences: torch.Tensor, eos_token_id=2):
+            mask = sequences != eos_token_id
+            lengths = mask.sum(dim=1)
+            return lengths
+        
+        if num_sample>1:
+            beam_scores = torch.mul(get_lengths(outputs['sequences'], eos_token_id=self.tokenizer.eos_token_id) - inputs['input_ids'].shape[-1], outputs['sequences_scores']).exp().cpu()
+        else:
+            beam_scores = [None]
         sliced_answers,log_likelihoods_s,last_token_embeddings = [],[],[]
         for index in range(num_sample):
             if len(outputs.sequences[index]) > self.token_limit:
@@ -554,4 +565,4 @@ class HuggingfaceModel(BaseModel):
             if len(log_likelihoods) == 0:
                 raise ValueError
             log_likelihoods_s.append(log_likelihoods)
-        return sliced_answers,log_likelihoods_s,last_token_embeddings
+        return sliced_answers,log_likelihoods_s,last_token_embeddings,beam_scores

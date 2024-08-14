@@ -265,12 +265,13 @@ def main(args):
 
             # Compute entropy from frequencies of cluster assignments.
             entropies['cluster_assignment_entropy'].append(cluster_assignment_entropy(semantic_ids))
-            entropies['beam_cluster_assignment_entropy'].append(cluster_assignment_entropy(beam_search_semantic_ids))
+            entropies['beam_search_cluster_assignment_entropy'].append(cluster_assignment_entropy(beam_search_semantic_ids))
+            entropies['beam_sample_cluster_assignment_entropy'].append(cluster_assignment_entropy(beam_sample_semantic_ids))
 
             # Length normalization of generation probabilities.
             log_liks_agg = [np.mean(log_lik) for log_lik in log_liks]
             beam_search_log_liks_agg = [np.mean(log_lik) for log_lik in beam_search_log_liks]
-            beam_sample_log_liks_agg = [np.mean(log_lik) for log_lik in beam_sample_log_liks]
+            beam_sample_log_liks_agg = [r[3] for r in beam_sample_full_responses]
 
             # Compute naive entropy.
             entropies['regular_entropy'].append(predictive_entropy(log_liks_agg))
