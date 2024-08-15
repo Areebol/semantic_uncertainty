@@ -5,7 +5,7 @@ from collections import Counter
 import torch
 
 import accelerate
-
+import numpy as np
 from transformers import AutoTokenizer
 from transformers import AutoConfig
 from transformers import AutoModelForCausalLM
@@ -427,6 +427,16 @@ class HuggingfaceModel(BaseModel):
                 pad_token_id=pad_token_id,
             )
             
+            # This short piece of codes:
+            # Verify wheter transition_scores == outputs.sequences_scores
+            # if num_sample > 1:
+            #     transition_scores = self.model.compute_transition_scores(outputs.sequences, outputs.scores, outputs.beam_indices, normalize_logits=False
+            #     )  
+            #     output_length = np.sum(transition_scores.cpu().numpy() < 0, axis=1)
+            #     length_penalty = self.model.generation_config.length_penalty
+            #     reconstructed_scores = transition_scores.cpu().sum(axis=1) / (output_length**length_penalty)
+            #     print(np.allclose(outputs.sequences_scores.cpu(), reconstructed_scores))
+            
         # Get hidden_states from outputs
         if 'decoder_hidden_states' in outputs.keys():
             hidden = outputs.decoder_hidden_states
@@ -440,9 +450,10 @@ class HuggingfaceModel(BaseModel):
             return lengths
         
         if num_sample>1:
-            beam_scores = torch.mul(get_lengths(outputs['sequences'], eos_token_id=self.tokenizer.eos_token_id) - inputs['input_ids'].shape[-1], outputs['sequences_scores']).exp().cpu()
+            # beam_scores = torch.mul(get_lengths(outputs['sequences'], eos_token_id=self.tokenizer.eos_token_id) - inputs['input_ids'].shape[-1], outputs['sequences_scores']).exp().cpu()
+            beam_scores = outputs.sequences_scores.cpu()
         else:
-            beam_scores = [None]
+            beam_scores = [1.0]
         sliced_answers,log_likelihoods_s,last_token_embeddings = [],[],[]
         for index in range(num_sample):
             if len(outputs.sequences[index]) > self.token_limit:
@@ -542,14 +553,29 @@ class HuggingfaceModel(BaseModel):
             last_token_embedding = last_layer[index, -1, :].unsqueeze(0).cpu()
             last_token_embeddings.append(last_token_embedding)
             
+        # Get log_likelihoods.
+        if num_sample > 1:
+            transition_scores = self.model.compute_transition_scores(
+                outputs.sequences, outputs.scores, outputs.beam_indices, normalize_logits=False)
+            
+            # Transition_scores[i] only contains the scores for the first generated tokens.
+            for index in range(num_sample):
+                log_likelihoods = [score.item() for score in transition_scores[index]]
+            
+                if len(log_likelihoods) == 1:
+                    logging.warning('Taking first and only generation for log likelihood!')
+                    log_likelihoods = log_likelihoods
+                else:
+                    log_likelihoods = log_likelihoods[:n_generated]
+                log_likelihoods_s.append(log_likelihoods)
+        else:
             # Get log_likelihoods.
             # outputs.scores are the logits for the generated token.
             # outputs.scores is a tuple of len = n_generated_tokens.
             # Each entry is shape (bs, vocabulary size).
             # outputs.sequences is the sequence of all tokens: input and generated.
-            scores = [score[index,:].unsqueeze(0) for score in outputs.scores]
             transition_scores = self.model.compute_transition_scores(
-                outputs.sequences[index].unsqueeze(0), scores, normalize_logits=True)
+                outputs.sequences, outputs.scores, normalize_logits=True)
             # Transition_scores[0] only contains the scores for the first generated tokens.
 
             log_likelihoods = [score.item() for score in transition_scores[0]]
@@ -564,5 +590,5 @@ class HuggingfaceModel(BaseModel):
 
             if len(log_likelihoods) == 0:
                 raise ValueError
-            log_likelihoods_s.append(log_likelihoods)
+            log_likelihoods_s = [log_likelihoods]
         return sliced_answers,log_likelihoods_s,last_token_embeddings,beam_scores

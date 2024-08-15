@@ -214,16 +214,16 @@ def main(args):
             
             # Beam predict 
             #   Search
-            beam_predicted_answers, beam_token_log_likelihoods_s, beam_embeddings, _ = model.beam_predict(
+            beam_predicted_answers, beam_token_log_likelihoods_s, beam_embeddings, beam_scores = model.beam_predict(
                     local_prompt, 1.0,num_generations)
             #   Append all predictions for this example in Beam way to `generations`
-            generations[example['id']]['beam_search_responses'] = list(zip(beam_predicted_answers,beam_token_log_likelihoods_s,beam_embeddings))
+            generations[example['id']]['beam_search_responses'] = list(zip(beam_predicted_answers,beam_token_log_likelihoods_s,beam_embeddings,beam_scores))
             for i, predicted_answer in enumerate(beam_predicted_answers):
                 logging.info('beam search prediction '.ljust(15) + str(i) + ' : ' + predicted_answer)
                 
             #   Sample
             beam_predicted_answers, beam_token_log_likelihoods_s, beam_embeddings,beam_scores = model.beam_predict(
-                    local_prompt, 1.0, num_generations,do_sample=True)
+                    local_prompt, 0.9, num_generations,do_sample=True)
             #   Append all predictions for this example in Beam way to `generations`
             generations[example['id']]['beam_sample_responses'] = list(zip(beam_predicted_answers,beam_token_log_likelihoods_s,beam_embeddings,beam_scores))
             for i, predicted_answer in enumerate(beam_predicted_answers):

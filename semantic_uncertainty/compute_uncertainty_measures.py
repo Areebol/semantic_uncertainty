@@ -166,8 +166,8 @@ def main(args):
     with open(result_dict_pickle.name, "rb") as infile:
         result_dict = pickle.load(infile)
     result_dict['semantic_ids'] = []
-    result_dict['beam_search_semantic_ids'] = []
-    result_dict['beam_sample_semantic_ids'] = []
+    result_dict['BSearch_semantic_ids'] = []
+    result_dict['BSample_semantic_ids'] = []
 
     validation_generations_pickle = restore('validation_generations.pkl')
     with open(validation_generations_pickle.name, 'rb') as infile:
@@ -251,43 +251,52 @@ def main(args):
             semantic_ids = get_semantic_ids(
                 responses, model=entailment_model,
                 strict_entailment=args.strict_entailment, example=example)
-            beam_search_semantic_ids = get_semantic_ids(
+            BSearch_semantic_ids = get_semantic_ids(
                 beam_search_responses, model=entailment_model,
                 strict_entailment=args.strict_entailment, example=example)
-            beam_sample_semantic_ids = get_semantic_ids(
+            BSample_semantic_ids = get_semantic_ids(
                 beam_sample_responses, model=entailment_model,
                 strict_entailment=args.strict_entailment, example=example)
             
 
             result_dict['semantic_ids'].append(semantic_ids)
-            result_dict['beam_search_semantic_ids'].append(beam_search_semantic_ids)
-            result_dict['beam_sample_semantic_ids'].append(beam_sample_semantic_ids)
+            result_dict['BSearch_semantic_ids'].append(BSearch_semantic_ids)
+            result_dict['BSample_semantic_ids'].append(BSample_semantic_ids)
 
             # Compute entropy from frequencies of cluster assignments.
             entropies['cluster_assignment_entropy'].append(cluster_assignment_entropy(semantic_ids))
-            entropies['beam_search_cluster_assignment_entropy'].append(cluster_assignment_entropy(beam_search_semantic_ids))
-            entropies['beam_sample_cluster_assignment_entropy'].append(cluster_assignment_entropy(beam_sample_semantic_ids))
+            entropies['BSearch_cluster_assignment_entropy'].append(cluster_assignment_entropy(BSearch_semantic_ids))
+            entropies['BSample_cluster_assignment_entropy'].append(cluster_assignment_entropy(BSample_semantic_ids))
 
             # Length normalization of generation probabilities.
             log_liks_agg = [np.mean(log_lik) for log_lik in log_liks]
-            beam_search_log_liks_agg = [np.mean(log_lik) for log_lik in beam_search_log_liks]
-            beam_sample_log_liks_agg = [r[3] for r in beam_sample_full_responses]
+            
+            BSearch_beam_ll_agg = [r[3] for r in beam_search_full_responses]
+            
+            BSample_beam_ll_agg = [r[3] for r in beam_sample_full_responses]
 
             # Compute naive entropy.
             entropies['regular_entropy'].append(predictive_entropy(log_liks_agg))
-            entropies['beam_search_regular_entropy'].append(predictive_entropy(beam_search_log_liks_agg))
-            entropies['beam_sample_regular_entropy'].append(predictive_entropy(beam_sample_log_liks_agg))
+            
+            entropies['BSearch_beam_regular_entropy'].append(predictive_entropy(BSearch_beam_ll_agg))
+            
+            entropies['BSample_beam_regular_entropy'].append(predictive_entropy(BSample_beam_ll_agg))
 
             # Compute semantic entropy.
             log_likelihood_per_semantic_id = logsumexp_by_id(semantic_ids, log_liks_agg, agg='sum_normalized')
             pe = predictive_entropy_rao(log_likelihood_per_semantic_id)
             entropies['semantic_entropy'].append(pe)
-            beam_log_likelihood_per_semantic_id = logsumexp_by_id(beam_search_semantic_ids, beam_search_log_liks_agg, agg='sum_normalized')
+            
+            # Search
+            # Beam
+            beam_log_likelihood_per_semantic_id = logsumexp_by_id(BSearch_semantic_ids, BSearch_beam_ll_agg, agg='sum_normalized')
             beam_search_pe = predictive_entropy_rao(beam_log_likelihood_per_semantic_id)
-            entropies['beam_search_semantic_entropy'].append(beam_search_pe)
-            beam_log_likelihood_per_semantic_id = logsumexp_by_id(beam_sample_semantic_ids, beam_sample_log_liks_agg, agg='sum_normalized')
+            entropies['BSearch_beam_semantic_entropy'].append(beam_search_pe)
+            
+            # Sample
+            beam_log_likelihood_per_semantic_id = logsumexp_by_id(BSample_semantic_ids, BSample_beam_ll_agg, agg='sum_normalized')
             beam_sample_pe = predictive_entropy_rao(beam_log_likelihood_per_semantic_id)
-            entropies['beam_sample_semantic_entropy'].append(beam_sample_pe)
+            entropies['BSample_beam_semantic_entropy'].append(beam_sample_pe)
 
             # pylint: disable=invalid-name
             log_str = 'semantic_ids: %s, avg_token_log_likelihoods: %s, entropies: %s'
